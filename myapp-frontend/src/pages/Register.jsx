@@ -9,15 +9,10 @@ const Register = () => {
   const navigate = useNavigate();
 
   const handleRegister = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post("/register", { username, email, password });
-      alert("Registered successfully!");
-      navigate("/login");
-    } catch (err) {
-      alert(err.response?.data?.error || "Registration failed");
-    }
+  e.preventDefault();
+  navigate("/login");
   };
+
 
   return (
     <div className="flex justify-center items-center h-screen bg-gray-100">
