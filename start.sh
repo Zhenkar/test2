@@ -77,7 +77,7 @@ WorkingDirectory=${BACKEND_DIR}
 EnvironmentFile=${BACKEND_DIR}/.env
 
 # Run DB init BEFORE starting gunicorn
-# ExecStartPre=/usr/bin/python3 ${BACKEND_DIR}/init_db.py
+ExecStartPre=/usr/bin/python3 ${BACKEND_DIR}/init_db.py
 
 # Start gunicorn with system python
 ExecStart=/usr/local/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 app:app
