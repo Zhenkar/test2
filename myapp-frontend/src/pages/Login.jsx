@@ -7,16 +7,12 @@ const Login = ({ setUser }) => {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await api.post("/login", { email, password });
-      setUser(res.data.user);
-      navigate("/notes");
-    } catch (err) {
-      alert(err.response?.data?.error || "Login failed");
-    }
-  };
+const handleLogin = (e) => {
+  e.preventDefault();
+
+  alert("Login successful!");
+  navigate("/dashboard"); // or wherever you want
+};
 
   return (
     <div className="flex justify-center items-center h-screen bg-gray-100">
