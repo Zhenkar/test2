@@ -1,86 +1,77 @@
-import os
-import mysql.connector
-from mysql.connector import errorcode
-from pathlib import Path
-import logging
+#!/bin/bash
+set -e
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ========= SETUP =========
+APP_DIR="$(pwd)"
+FRONTEND_DIR="${APP_DIR}/myapp-frontend"
+BACKEND_DIR="${APP_DIR}/myapp-backend"
+echo "🚀 Starting deployment from $(pwd)"
 
-def initialize_database():
-    """
-    Connects to the MySQL server (no DB), creates database if missing,
-    then executes statements from schema.sql (idempotent recommended).
-    DB connection config is read from environment variables:
-      DB_HOST, DB_USER, DB_PASSWORD, DB_PORT (optional)
-    """
+# ========= SYSTEM_UPDATE =========
+sudo apt-get update -y
+sudo apt-get upgrade -y
+sudo apt-get install -y curl git nginx build-essential python3-venv
 
-    db_host = os.environ.get("DB_HOST", "localhost")
-    db_user = os.environ.get("DB_USER", "newuser")
-    db_password = os.environ.get("DB_PASSWORD", "")
-    db_port = int(os.environ.get("DB_PORT", 3306))
-    db_name = os.environ.get("DB_NAME", "notes_app")
+# ========= NODE_INSTALL =========
+if ! command -v node >/dev/null 2>&1; then
+  curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+fi
 
-    if not db_password:
-        logger.warning("DB_PASSWORD is empty — make sure this is intentional.")
+# ========= PM2_INSTALL =========
+sudo npm install -g pm2
 
-    # Connect to MySQL server WITHOUT specifying database
-    try:
-        connection = mysql.connector.connect(
-            host=db_host,
-            user=db_user,
-            password=db_password,
-            port=db_port,
-            charset="utf8mb4",
-            autocommit=False
-        )
-    except mysql.connector.Error as err:
-        logger.exception("Could not connect to MySQL server.")
-        raise
+# ========= BACKEND_SETUP =========
+echo "⚙️ Setting up Flask backend..."
+cd "$BACKEND_DIR" || exit 1
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt || pip install Flask gunicorn
+deactivate
+pm2 start venv/bin/gunicorn --name myapp-backend -- -b 0.0.0.0:5000 app:app
 
-    cursor = connection.cursor()
+# ========= FRONTEND_SETUP =========
+echo "⚙️ Building React frontend..."
+cd "$FRONTEND_DIR" || exit 1
+npm install 
+npm run build
 
-    try:
-        logger.info("Creating database (if not exists): %s", db_name)
-        cursor.execute(
-            f"CREATE DATABASE IF NOT EXISTS `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-        )
-        connection.commit()
+# ========= NGINX_CONFIG =========
+sudo rm -rf /var/www/html/*
+sudo cp -r dist/* /var/www/html/
+echo "⚙️ Configuring nginx..."
+sudo tee /etc/nginx/sites-available/myapp >/dev/null <<NGINX
+server {
+    listen 80;
 
-        cursor.execute(f"USE `{db_name}`;")
+    server_name _;
 
-        # Resolve schema.sql relative to this file (so running from other CWD works)
-        schema_path = Path(__file__).parent / "schema.sql"
-        if not schema_path.exists():
-            raise FileNotFoundError(f"schema.sql not found at {schema_path}")
+    root /var/www/html;
+    index index.html;
 
-        sql_text = schema_path.read_text(encoding="utf-8")
+    location / {
+        try_files \$uri /index.html;
+    }
 
-        # Basic split on semicolon to get statements. Keep statements sane (strip whitespace).
-        statements = [stmt.strip() for stmt in sql_text.split(";") if stmt.strip()]
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+NGINX
+sudo ln -sf /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/myapp
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl restart nginx
 
-        logger.info("Executing %d SQL statements from schema.sql", len(statements))
+# ========= PM2_REBOOT_SETUP =========
+pm2 save
+pm2 startup systemd -u ubuntu --hp /home/ubuntu
 
-        for stmt in statements:
-            try:
-                cursor.execute(stmt)
-            except mysql.connector.Error as e:
-                # If an error is OK (like "table exists"), we skip but log as info/warn.
-                # Adjust behavior if you want errors to stop initialization.
-                logger.warning("Skipped statement due to error: %s — statement preview: %.100s", e, stmt)
-        connection.commit()
-
-        logger.info("✅ Database and tables initialized successfully")
-    finally:
-        try:
-            cursor.close()
-        except Exception:
-            pass
-        try:
-            connection.close()
-        except Exception:
-            pass
-
-
-if __name__ == "__main__":
-    initialize_database()
+# ========= DEPLOYMENT_COMPLETE =========
+echo "✅ Deployment completed!"
