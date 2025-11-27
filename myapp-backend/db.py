@@ -7,7 +7,7 @@ connection_pool = pooling.MySQLConnectionPool(
     pool_size=10,
     host="localhost",
     user="newuser",
-    password="password123",
+    password="Zhenkar@123",
     database="notes_app",
     charset="utf8mb4"  # avoid unsupported collations
 )

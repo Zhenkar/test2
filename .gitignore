@@ -1,0 +1,78 @@
+###############################
+# Global ignores for project
+###############################
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.log
+
+# Virtual environments (if created later)
+venv/
+env/
+.myenv/
+myenv/
+
+# Python build artifacts
+build/
+dist/
+pip-wheel-metadata/
+*.sqlite3
+
+# --- Flask backend ---
+myapp-backend/.env            # sensitive DB credentials
+myapp-backend/.env.*          # variations
+myapp-backend/*.db            # if any local SQLite is used
+
+# Byte-compiled files inside backend
+myapp-backend/**/__pycache__/
+myapp-backend/**/*.pyc
+
+# Gunicorn logs (if generated)
+gunicorn.pid
+gunicorn.log
+
+# --- Node/React frontend ---
+myapp-frontend/node_modules/
+myapp-frontend/.pnp/
+myapp-frontend/.pnp.js
+myapp-frontend/npm-debug.log*
+myapp-frontend/yarn-debug.log*
+myapp-frontend/yarn-error.log*
+myapp-frontend/.parcel-cache/
+myapp-frontend/.eslintcache
+myapp-frontend/.cache/
+
+# Production build output (generated, not committed)
+myapp-frontend/build/
+myapp-frontend/dist/
+myapp-frontend/.next/
+myapp-frontend/out/
+
+# --- Environment & secrets ---
+.env
+*.env.local
+*.env.development.local
+*.env.production.local
+
+# --- OS-specific ---
+.DS_Store
+Thumbs.db
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log
+yarn-error.log
+
