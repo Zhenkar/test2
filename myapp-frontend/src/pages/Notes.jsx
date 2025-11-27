@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../services/api";
 import NoteCard from "../components/NoteCard";
 
 const Notes = ({ user }) => {
@@ -7,30 +6,56 @@ const Notes = ({ user }) => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
 
-  const fetchNotes = async () => {
-    try {
-      const res = await api.get(`/notes/${user.id}`);
-      setNotes(res.data);
-    } catch (err) {
-      console.log(err);
+  // Show loading if user not loaded yet
+  if (!user) {
+    return <h1 className="p-4 text-center text-xl">Loading...</h1>;
+  }
+
+  // ---------- FETCH NOTES USING USER EMAIL ----------
+  const fetchNotes = () => {
+    const allNotes = JSON.parse(localStorage.getItem("notes")) || {};
+
+    // If user has no notes, initialize empty list
+    if (!allNotes[user.email]) {
+      allNotes[user.email] = [];
+      localStorage.setItem("notes", JSON.stringify(allNotes));
     }
+
+    setNotes(allNotes[user.email]);
   };
 
-  const addNote = async (e) => {
+  // ---------- SAVE NOTES BACK TO LOCAL STORAGE ----------
+  const saveNotes = (updatedNotes) => {
+    const allNotes = JSON.parse(localStorage.getItem("notes")) || {};
+    allNotes[user.email] = updatedNotes;
+    localStorage.setItem("notes", JSON.stringify(allNotes));
+  };
+
+  // ---------- ADD NOTE ----------
+  const addNote = (e) => {
     e.preventDefault();
-    try {
-      await api.post("/notes", { user_id: user.id, title, content });
-      setTitle("");
-      setContent("");
-      fetchNotes();
-    } catch (err) {
-      console.log(err);
-    }
+
+    const newNote = {
+      id: Date.now(),
+      title,
+      content,
+    };
+
+    const updatedNotes = [...notes, newNote];
+
+    setNotes(updatedNotes);
+    saveNotes(updatedNotes);
+
+    setTitle("");
+    setContent("");
   };
 
-  const deleteNote = async (id) => {
-    await api.delete(`/notes/${id}`);
-    fetchNotes();
+  // ---------- DELETE NOTE ----------
+  const deleteNote = (id) => {
+    const updatedNotes = notes.filter((note) => note.id !== id);
+
+    setNotes(updatedNotes);
+    saveNotes(updatedNotes);
   };
 
   useEffect(() => {
@@ -47,19 +72,24 @@ const Notes = ({ user }) => {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="flex-1 p-2 border rounded"
+            required
           />
+
           <input
             type="text"
             placeholder="Content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="flex-2 p-2 border rounded"
+            required
           />
+
           <button className="bg-blue-500 text-white px-4 rounded hover:bg-blue-600">
             Add
           </button>
         </form>
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
         {notes.map((note) => (
           <NoteCard key={note.id} note={note} onDelete={deleteNote} />
